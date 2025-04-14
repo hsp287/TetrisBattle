@@ -104,3 +104,6 @@ venv.bak/
 
 trained_models/
 .fuse_hidden*
+
+# training data
+training/

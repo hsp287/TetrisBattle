@@ -176,13 +176,14 @@ class TetrisInterface(abc.ABC):
         return ob
 
     def get_seen_grid(self):
-        grid_1 = self.tetris_list[self.now_player]["tetris"].get_grid()
-        grid_1[-1][-1] = self.time / MAX_TIME
+        grid_1, info_1 = self.tetris_list[self.now_player]["tetris"].get_grid()
+        #grid_1[-1][-1] = self.time / MAX_TIME
         # print(grid_1)
-        grid_2 = self.tetris_list[1 - self.now_player]["tetris"].get_grid()
-        grid_2[-1][-1] = self.time / MAX_TIME
+        grid_2, info_2 = self.tetris_list[1 - self.now_player]["tetris"].get_grid()
+        #grid_2[-1][-1] = self.time / MAX_TIME
         grid_2.fill(0) # since only one player
         grid = np.concatenate([grid_1, grid_2], axis=1)
+        #info = np.concatenate([info_1, info_2], axis=1)
 
         return grid.reshape(grid.shape[0], grid.shape[1], 1)
         # return self.tetris_list[self.now_player]["tetris"].get_grid().reshape(GRID_DEPTH, GRID_WIDTH, 1)

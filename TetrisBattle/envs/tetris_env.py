@@ -39,6 +39,15 @@ class TetrisEnv(gym.Env, abc.ABC):
 
         self.seed()
 
+        '''
+        spaces = {
+            'board': spaces.Box(low=0, high=1, 
+                    shape=list(self.game_interface.get_seen_grid().shape), dtype=np.float32),
+            'held_piece': spaces.MultiBinary(self.game_interface.n_pieces),
+            'next_pieces': spaces.MultiBinary([5, self.game_interface.n_pieces])
+            }
+        '''
+
         if obs_type == "image":
             self.observation_space = spaces.Box(low=0, high=255, 
                 shape=self.game_interface.screen_size() + [3], dtype=np.uint8)

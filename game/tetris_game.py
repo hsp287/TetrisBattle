@@ -312,7 +312,7 @@ class TetrisGameDouble(TetrisGame):
         #main loop
         while running:
             # battlemusic.play()#plays music
-            
+
             for tetris_dict in tetris_list:
                 tetris_dict["tetris"].natural_down()
 
@@ -362,6 +362,7 @@ class TetrisGameDouble(TetrisGame):
                         # end = 1
 
                     tetris.new_block()
+                    print(tetris.get_grid()[0])
 
                 self.renderer.drawGameScreen(tetris)
 
@@ -490,6 +491,7 @@ class TetrisGameSingle(TetrisGame):
         kk = 0
         while running:
             # battlemusic.play()#plays music
+            print(tetris.get_grid()[0])
             
             tetris.natural_down()
 
@@ -542,8 +544,6 @@ class TetrisGameSingle(TetrisGame):
                                 'max_height': max_height,
                                 'holes': holes,
                                 'n_used_block': tetris.n_used_block}
-
-                print(infos)
 
             self.renderer.drawGameScreen(tetris)
 

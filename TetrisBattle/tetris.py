@@ -618,16 +618,20 @@ class Tetris(object):
     
     def get_grid(self):
         excess = len(self.grid[0]) - GRID_DEPTH
-        return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH), dtype=np.float32)
+        return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
         
         block, px, py = self.block, self.px, self.py
-        excess = len(self.grid[0]) - GRID_DEPTH
         b = block.now_block()
 
         for i in range(len(self.grid)):
             return_grids[i] = np.array(self.grid[i][excess:GRID_DEPTH], dtype=np.float32)
         return_grids[return_grids > 0] = 1
-
+        # add garbage lines
+        if excess > 0:
+            garbage_row = 2.0*np.ones(shape=(GRID_WIDTH, 1))
+            garbage_rows = np.tile(garbage_row, excess)
+            return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
+        
         add_y = hardDrop(self.grid, self.block, self.px, self.py)
 
         for x in range(BLOCK_WIDTH):
@@ -640,7 +644,7 @@ class Tetris(object):
                     if -1 < px + x < 10 and -1 < py + y - excess < 20:
                         return_grids[px + x][py + y - excess] = 0.7
 
-        informations = np.zeros(shape=(len(PIECE_NUM2TYPE) - 1, GRID_DEPTH), dtype=np.float32)
+        informations = np.zeros(shape=(len(PIECE_NUM2TYPE) - 1, 7), dtype=np.float32)
         if self.held != None:
             informations[PIECE_TYPE2NUM[self.held.block_type()] - 1][0] = 1
 
@@ -656,21 +660,26 @@ class Tetris(object):
         informations[3][6] = self._attacked / GRID_DEPTH
         # informations[3][7] = self.time / MAX_TIME
 
-        return_grids = np.concatenate((return_grids, informations), axis=0)
+        #return_grids = np.concatenate((return_grids, informations), axis=0)
 
-        return np.transpose(return_grids, (1, 0))
+        return np.transpose(return_grids, (1, 0)), np.transpose(informations, (1, 0))
+        #return np.transpose(informations, (1, 0))
 
     def get_board(self):
         excess = len(self.grid[0]) - GRID_DEPTH
-        return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH), dtype=np.float32)
+        return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
         
-        block, px, py = self.block, self.px, self.py
-        excess = len(self.grid[0]) - GRID_DEPTH
+        # block, px, py = self.block, self.px, self.py
         # b = block.now_block()
 
         for i in range(len(self.grid)):
             return_grids[i] = np.array(self.grid[i][excess:GRID_DEPTH], dtype=np.float32)
         return_grids[return_grids > 0] = 1
+        # add garbage lines
+        if excess > 0:
+            garbage_row = 2.0*np.ones(shape=(GRID_WIDTH, 1))
+            garbage_rows = np.tile(garbage_row, excess)
+            return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
         # for x in range(BLOCK_WIDTH):
         #     for y in range(BLOCK_LENGTH):
         #         if b[x][y] > 0:
