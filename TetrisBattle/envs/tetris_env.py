@@ -2,10 +2,10 @@ import os
 import abc
 import numpy as np
 import random
-import gym
-from gym import spaces
-from gym import utils
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium import utils
+from gymnasium.utils import seeding
 
 from TetrisBattle.envs.tetris_interface import TetrisInterface, TetrisDoubleInterface, \
     TetrisSingleInterface
