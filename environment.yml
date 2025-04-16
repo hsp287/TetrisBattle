@@ -1,0 +1,17 @@
+name: tetris # This will become the name of your environment
+channels:
+  - conda-forge
+  - defaults
+dependencies: # The list of packages to include in your environment
+  - imageio
+  - conda-forge::pygame
+  - gymnasium
+  - ffmpeg
+  - conda-forge::imageio-ffmpeg
+  - pip # Install pip in your environment
+  - pip: # Include pip dependencies last
+      - --index-url https://download.pytorch.org/whl/cu126 # change cuda version to yours or remove this
+      - torch
+      - torchvision
+      - torchaudio
+      - -e .
