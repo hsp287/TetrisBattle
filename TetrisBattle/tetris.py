@@ -714,7 +714,7 @@ class Tetris(object):
             if collideDown(self.grid, self.block, self.px, self.py) == False:
                 self.stopcounter = 0
                 # self.block.move_down()
-                self.py += 1
+                # self.py += 1              # enable/disable natural falling    
                 # pass
 
             self.LAST_NATRUAL_FALL_TIME = 0
