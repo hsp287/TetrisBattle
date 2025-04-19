@@ -40,7 +40,7 @@ def test_video_recorder():
                 step += 1
                 frame_counter = 0  # Reset the frame counter for different actions
 
-            state, reward, done, info = env.step(action)
+            state["grid"], reward, done, info = env.step(action)
             # Update the last action
             last_action = action
 

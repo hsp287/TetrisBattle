@@ -183,9 +183,12 @@ class TetrisInterface(abc.ABC):
         #grid_2[-1][-1] = self.time / MAX_TIME
         grid_2.fill(0) # since only one player
         grid = np.concatenate([grid_1, grid_2], axis=1)
-        #info = np.concatenate([info_1, info_2], axis=1)
+        info = np.concatenate([info_1, info_2], axis=1)
 
-        return grid.reshape(grid.shape[0], grid.shape[1], 1)
+        return {
+            "grid": grid.reshape(grid.shape[0], grid.shape[1], 1),
+            "info": info.reshape(info.shape[0], info.shape[1], 1)
+            }
         # return self.tetris_list[self.now_player]["tetris"].get_grid().reshape(GRID_DEPTH, GRID_WIDTH, 1)
 
     def get_obs(self):
