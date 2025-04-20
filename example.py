@@ -53,5 +53,26 @@ def test_video_recorder():
     # Stop recording and save the video
     recorder.stop_and_save("test_random_actions")
 
+
+def test_possible_states():
+    # Initialize the environment
+    env = TetrisSingleEnv(gridchoice="none", obs_type="grid", mode="rgb_array")
+    state = env.reset()
+
+    # Access the Tetris instance
+    tetris = env.game_interface.tetris_list[0]["tetris"]
+
+    # Get all possible states
+    final_states, action_sequences, was_held = tetris.get_all_possible_states()
+
+    # Print the results
+    print(f"Number of possible placements: {len(final_states)}")
+    for i, (grid, actions, held) in enumerate(zip(final_states, action_sequences, was_held)):
+        print(f"Placement {i + 1}:")
+        print(f"Grid:\n{grid}")
+        print(f"Actions: {actions}")
+        print(f"Was Held: {held}")
+        print("-" * 50)
+
 if __name__ == "__main__":
-    test_video_recorder()
+    test_possible_states()

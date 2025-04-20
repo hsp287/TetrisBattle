@@ -491,7 +491,7 @@ class TetrisGameSingle(TetrisGame):
         kk = 0
         while running:
             # battlemusic.play()#plays music
-            print(tetris.get_grid()[0])
+            # print(tetris.get_grid()[0])
             
             tetris.natural_down()
 
@@ -544,6 +544,20 @@ class TetrisGameSingle(TetrisGame):
                                 'max_height': max_height,
                                 'holes': holes,
                                 'n_used_block': tetris.n_used_block}
+                
+                '''
+                # Get all possible states
+                final_states, action_sequences, was_held = tetris.get_all_possible_states()
+
+                # Print the results
+                print(f"Number of possible placements: {len(final_states)}")
+                for i, (grid, actions, held) in enumerate(zip(final_states, action_sequences, was_held)):
+                    print(f"Placement {i + 1}:")
+                    print(f"Grid:\n{grid}")
+                    print(f"Actions: {actions}")
+                    print(f"Was Held: {held}")
+                    print("-" * 50)
+                '''
 
             self.renderer.drawGameScreen(tetris)
 

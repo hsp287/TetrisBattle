@@ -22,6 +22,8 @@ from copy import deepcopy
 
 import time as t
 from collections import Counter
+from copy import deepcopy
+
 
 def put_block_in_grid(grid, block, px, py):
     feasibles = block.return_pos_color(px, py)
@@ -956,3 +958,211 @@ class Tetris(object):
     def update_combo(self):
         self.oldcombo = self.combo
         self.combo += 1
+
+
+    def get_all_possible_states(self):
+        """
+        Generate all possible final board states, action sequences, and hold flags
+        for the current tetromino piece.
+
+        Returns:
+            list: A list of all possible final board states (rotated to 10x20).
+            list: A list of action sequences leading to each board state.
+            list: A list of booleans indicating whether the piece was held.
+        """
+        def simulate_actions(grid, block, px, py, actions):
+            """Simulate a sequence of actions and return the resulting grid and position."""
+            simulated_grid = deepcopy(grid)
+            simulated_block = deepcopy(block)
+            simulated_px, simulated_py = px, py
+
+            for action in actions:
+                if action == "rotate_right":
+                    simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=1)
+                elif action == "rotate_left":
+                    simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=-1)
+                elif action == "left" and not collideLeft(simulated_grid, simulated_block, simulated_px, simulated_py):
+                    simulated_px -= 1
+                elif action == "right" and not collideRight(simulated_grid, simulated_block, simulated_px, simulated_py):
+                    simulated_px += 1
+                elif action == "drop":
+                    simulated_py += hardDrop(simulated_grid, simulated_block, simulated_px, simulated_py)
+
+            put_block_in_grid(simulated_grid, simulated_block, simulated_px, simulated_py)
+            # Convert grid to 1s and 0s
+            for x in range(len(simulated_grid)):
+                for y in range(len(simulated_grid[0])):
+                    if simulated_grid[x][y] >= 1:
+                        simulated_grid[x][y] = 1
+            return simulated_grid
+        
+        def compute_rotation_id(block):
+            """
+            Compute a unique ID for the current rotation of the tetromino block.
+            The ID is shift-invariant and identifies unique rotations.
+
+            Args:
+                block (Piece): The Piece object representing the tetromino.
+
+            Returns:
+                str: A unique ID for the current rotation of the block.
+            """
+            import numpy as np
+
+            # Get the 4x4 list of the current block
+            tetromino = block.now_block()
+
+            # Convert to a NumPy array for easier manipulation
+            tetromino = np.array(tetromino)
+
+            # Remove empty rows and columns (trim to bounding box)
+            non_zero_rows = np.any(tetromino > 0, axis=1)
+            non_zero_cols = np.any(tetromino > 0, axis=0)
+            trimmed = tetromino[non_zero_rows][:, non_zero_cols]
+
+            # Normalize the trimmed array to a fixed size (4x4)
+            normalized = np.zeros((4, 4), dtype=int)
+            normalized[:trimmed.shape[0], :trimmed.shape[1]] = trimmed
+
+            # Flatten the normalized array into a tuple (canonical representation)
+            flattened = tuple(normalized.flatten())
+
+            # Return the unique ID as a string
+            return str(flattened)
+
+        def generate_moves(grid, block, px, py):
+            """Generate all possible moves for the current block."""
+            moves = []
+            visited_rotations = set()
+            # no left or right motion
+            moves.append((px, py, 0))
+            for rotation in range(len(block.possible_shapes)):
+                # Skip redundant rotations for symmetric pieces
+                if compute_rotation_id(block) in visited_rotations:
+                    continue
+                visited_rotations.add(compute_rotation_id(block))
+
+                print(min(x for x, y in block.get_feasible()), max(x for x, y in block.get_feasible()))
+
+                temp_px = px
+                # Simulate moving left to the farthest position
+                while not collideLeft(grid, block, temp_px, py):
+                    temp_px -= 1
+                    moves.append((temp_px, py, rotation))
+                # Simulate moving right to the farthest position
+                temp_px = px
+                while not collideRight(grid, block, temp_px, py):
+                    temp_px += 1
+                    moves.append((temp_px, py, rotation))
+                
+                # Rotate the block to next position
+                block.rotate(-1)
+            return moves
+        
+        def map_actions_to_integers(actions):
+            """Action mapping based on tetris interface"""
+            action_mapping = {
+                "NOOP": 0,
+                "hold": 1,
+                "drop": 2,
+                "rotate_right": 3,
+                "rotate_left": 4,
+                "right": 5,
+                "left": 6,
+                "down": 7
+            }
+            return [action_mapping[action] for action in actions]
+
+        # Initialize results
+        final_states = []
+        action_sequences = []
+        was_held = []
+
+        # Get the current grid and piece
+        grid = deepcopy(self.grid)
+        block = deepcopy(self.block)
+        px, py = 4, -2 + len(self.grid[0]) - GRID_DEPTH
+
+        # Generate all possible moves for the current piece
+        moves = generate_moves(grid, block, px, py)
+
+        # Simulate each move and record the final board state and actions
+        for move_px, move_py, rotation in moves:
+            # Simulate the actions to reach the final position
+            actions = []
+            # Add rotations
+            if rotation == 1:
+                actions.append("rotate_right")
+            elif rotation == 2:
+                actions.extend(["rotate_right", "rotate_right"])
+            elif rotation == 3:
+                actions.append("rotate_left")
+            # Add horizontal moves
+            if move_px < px:
+                actions.extend(["left"] * (px - move_px))
+            elif move_px > px:
+                actions.extend(["right"] * (move_px - px))
+            # Add hard drop
+            actions.append("drop")
+
+            # Simulate the actions
+            final_grid = simulate_actions(grid, block, px, py, actions)
+
+            # Rotate the grid to 10x20
+            rotated_grid = np.transpose(final_grid)
+
+            # Map actions to integers
+            action_sequence = map_actions_to_integers(actions)
+            action_sequence.insert(0, 0)
+
+            # Record the final state and actions
+            final_states.append(rotated_grid)
+            action_sequences.append(action_sequence)
+            was_held.append(False)
+
+        # Handle the hold mechanic
+        if not self.isholded and block != self.buffer.now_list[0]:
+            held_block = deepcopy(self.held)
+            if held_block is None:
+                # If no piece is held, hold the current piece and use the next piece
+                next_block = deepcopy(self.buffer.now_list[0])
+            else:
+                # If a piece is already held, swap it with the current piece
+                next_block = held_block
+
+            # Generate moves for the held piece
+            held_moves = generate_moves(grid, next_block, px, py)
+            for move_px, move_py, rotation in held_moves:
+                # Simulate the actions to reach the final position
+                actions = ["hold"]
+                # Add rotations
+                if rotation == 1:
+                    actions.append("rotate_right")
+                elif rotation == 2:
+                    actions.extend(["rotate_right", "rotate_right"])
+                elif rotation == 3:
+                    actions.append("rotate_left")
+                # Add horizontal moves
+                if move_px < px:
+                    actions.extend(["left"] * (px - move_px))
+                elif move_px > px:
+                    actions.extend(["right"] * (move_px - px))
+                # Add hard drop
+                actions.append("drop")
+
+                # Simulate the actions
+                final_grid = simulate_actions(grid, next_block, px, py, actions)
+
+                # Map actions to integers
+                action_sequence = map_actions_to_integers(actions)
+                action_sequence.insert(0, 0)
+
+                # Rotate the grid to 10x20
+                rotated_grid = np.transpose(final_grid)
+
+                # Record the final state and actions
+                final_states.append(rotated_grid)
+                action_sequences.append(action_sequence)
+                was_held.append(True)
+
+        return final_states, action_sequences, was_held
