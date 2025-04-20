@@ -1034,15 +1034,16 @@ class Tetris(object):
             """Generate all possible moves for the current block."""
             moves = []
             visited_rotations = set()
-            # no left or right motion
-            moves.append((px, py, 0))
             for rotation in range(len(block.possible_shapes)):
                 # Skip redundant rotations for symmetric pieces
                 if compute_rotation_id(block) in visited_rotations:
                     continue
                 visited_rotations.add(compute_rotation_id(block))
 
-                print(min(x for x, y in block.get_feasible()), max(x for x, y in block.get_feasible()))
+                #print(min(x for x, y in block.get_feasible()), max(x for x, y in block.get_feasible()))
+
+                # no left or right motion
+                moves.append((px, py, rotation))
 
                 temp_px = px
                 # Simulate moving left to the farthest position
