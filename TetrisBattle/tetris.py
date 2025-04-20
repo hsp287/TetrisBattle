@@ -1122,15 +1122,14 @@ class Tetris(object):
             was_held.append(False)
 
         # Handle the hold mechanic
-        if not self.isholded and block != self.buffer.now_list[0]:
-            held_block = deepcopy(self.held)
-            if held_block is None:
-                # If no piece is held, hold the current piece and use the next piece
-                next_block = deepcopy(self.buffer.now_list[0])
-            else:
-                # If a piece is already held, swap it with the current piece
-                next_block = held_block
-
+        held_block = deepcopy(self.held)
+        if held_block is None:
+            # If no piece is held, hold the current piece and use the next piece
+            next_block = deepcopy(self.buffer.now_list[0])
+        else:
+            # If a piece is already held, swap it with the current piece
+            next_block = held_block
+        if not self.isholded and block != next_block:
             # Generate moves for the held piece
             held_moves = generate_moves(grid, next_block, px, py)
             for move_px, move_py, rotation in held_moves:
