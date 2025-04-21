@@ -545,19 +545,27 @@ class TetrisGameSingle(TetrisGame):
                                 'holes': holes,
                                 'n_used_block': tetris.n_used_block}
                 
-                '''
+                
                 # Get all possible states
-                final_states, action_sequences, was_held = tetris.get_all_possible_states()
+                final_states, action_sequences, was_held, rewards = tetris.get_all_possible_states()
+
+                # Find the maximum reward
+                max_reward = max(rewards)
 
                 # Print the results
                 print(f"Number of possible placements: {len(final_states)}")
-                for i, (grid, actions, held) in enumerate(zip(final_states, action_sequences, was_held)):
-                    print(f"Placement {i + 1}:")
-                    print(f"Grid:\n{grid}")
-                    print(f"Actions: {actions}")
-                    print(f"Was Held: {held}")
-                    print("-" * 50)
-                '''
+                print(f"Highest Reward: {max_reward}")
+                print("-" * 50)
+
+                for i, (grid, actions, held, reward) in enumerate(zip(final_states, action_sequences, was_held, rewards)):
+                    if reward == max_reward:
+                        print(f"Placement {i + 1} (Highest Reward):")
+                        print(f"Grid:\n{grid}")
+                        print(f"Actions: {actions}")
+                        print(f"Was Held: {held}")
+                        print(f"Reward: {reward}")
+                        print("-" * 50)
+                
 
             self.renderer.drawGameScreen(tetris)
 

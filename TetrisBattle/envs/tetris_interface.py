@@ -72,6 +72,10 @@ class ComEvent:
                         self._now_evt_list.append(ComEvt("HOLD", action))
             if not hold:
                 self._now_evt_list.append(ComEvt(pygame.KEYDOWN, action))
+            # for rotations, you need to let go of key afterwards (append key up)
+            if action == 3 or action == 4:
+                self._now_evt_list.append(ComEvt(pygame.KEYDOWN, action))
+                self._now_evt_list.append(ComEvt(pygame.KEYUP, action))
 
         self._pre_evt_list = self._now_evt_list
 

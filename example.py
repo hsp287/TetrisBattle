@@ -41,9 +41,40 @@ def test_video_recorder():
                 frame_counter = 0  # Reset the frame counter for different actions
 
             state, reward, done, info = env.step(action)
-            print(state["grid"][1])  # print grid state for player 1
+            #print(state["grid"][1])  # print grid state for player 1
             # Update the last action
             last_action = action
+
+            # Capture the current frame
+            recorder.capture_frame(env.game_interface.screen)
+
+        print(f"Episode {episode + 1} finished.")
+
+    # Stop recording and save the video
+    recorder.stop_and_save("test_random_actions")
+
+
+def test_random_actions():
+    # Initialize the environment and video recorder
+    env = TetrisSingleEnv(gridchoice="none", obs_type="grid", mode="rgb_array")
+    recorder = VideoRecorder(save_dir="training")
+
+    num_episodes = 1  # Number of episodes to record
+    max_steps_per_episode = 1000  # Maximum steps per episode
+
+    recorder.start_recording()  # Start recording
+
+    for episode in range(num_episodes):
+        state = env.reset()
+        done = False
+        step = 0
+        action = 0
+
+        while not done and step < max_steps_per_episode:
+            # Get the next action
+            action = env.random_action()
+
+            state, reward, done, info = env.step(action)
 
             # Capture the current frame
             recorder.capture_frame(env.game_interface.screen)
@@ -63,16 +94,17 @@ def test_possible_states():
     tetris = env.game_interface.tetris_list[0]["tetris"]
 
     # Get all possible states
-    final_states, action_sequences, was_held = tetris.get_all_possible_states()
+    final_states, action_sequences, was_held, rewards = tetris.get_all_possible_states()
 
     # Print the results
     print(f"Number of possible placements: {len(final_states)}")
-    for i, (grid, actions, held) in enumerate(zip(final_states, action_sequences, was_held)):
+    for i, (grid, actions, held, reward) in enumerate(zip(final_states, action_sequences, was_held, rewards)):
         print(f"Placement {i + 1}:")
         print(f"Grid:\n{grid}")
         print(f"Actions: {actions}")
         print(f"Was Held: {held}")
+        print(f"Reward: {reward}")
         print("-" * 50)
 
 if __name__ == "__main__":
-    test_possible_states()
+    test_random_actions()

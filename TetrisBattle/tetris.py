@@ -890,7 +890,7 @@ class Tetris(object):
 
         if cleared >= 1:
             if self.tspin or self.tetris:
-                print("next backtoback")
+                #print("next backtoback")
                 self.now_back2back = 1
             else:
                 self.now_back2back = 0
@@ -970,6 +970,26 @@ class Tetris(object):
             list: A list of action sequences leading to each board state.
             list: A list of booleans indicating whether the piece was held.
         """
+        def clear_full_lines(grid):
+            """Clear full lines from the grid and shift remaining rows down."""
+            width = len(grid)
+            height = len(grid[0])
+
+            # Identify rows that are not full
+            new_grid = []
+            for y in range(height):
+                if any(grid[x][y] == 0 for x in range(width)):
+                    new_grid.append([grid[x][y] for x in range(width)])
+
+            # Add empty rows at the top for cleared lines
+            cleared_lines = height - len(new_grid)
+            for _ in range(cleared_lines):
+                new_grid.insert(0, [0] * width)
+
+            # Transpose back to the original grid format
+            cleared_grid = [[new_grid[y][x] for y in range(height)] for x in range(width)]
+            return cleared_grid
+
         def simulate_actions(grid, block, px, py, actions):
             """Simulate a sequence of actions and return the resulting grid and position."""
             simulated_grid = deepcopy(grid)
@@ -978,9 +998,9 @@ class Tetris(object):
 
             for action in actions:
                 if action == "rotate_right":
-                    simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=1)
-                elif action == "rotate_left":
                     simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=-1)
+                elif action == "rotate_left":
+                    simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=1)
                 elif action == "left" and not collideLeft(simulated_grid, simulated_block, simulated_px, simulated_py):
                     simulated_px -= 1
                 elif action == "right" and not collideRight(simulated_grid, simulated_block, simulated_px, simulated_py):
@@ -989,6 +1009,10 @@ class Tetris(object):
                     simulated_py += hardDrop(simulated_grid, simulated_block, simulated_px, simulated_py)
 
             put_block_in_grid(simulated_grid, simulated_block, simulated_px, simulated_py)
+
+            # Clear full lines
+            simulated_grid = clear_full_lines(simulated_grid)
+
             # Convert grid to 1s and 0s
             for x in range(len(simulated_grid)):
                 for y in range(len(simulated_grid[0])):
@@ -1045,20 +1069,38 @@ class Tetris(object):
                 # no left or right motion
                 moves.append((px, py, rotation))
 
-                temp_px = px
+                temp_px, temp_py = px, py
                 # Simulate moving left to the farthest position
-                while not collideLeft(grid, block, temp_px, py):
+                while not collideLeft(grid, block, temp_px, temp_py):
                     temp_px -= 1
-                    moves.append((temp_px, py, rotation))
+                    moves.append((temp_px, temp_py, rotation))
                 # Simulate moving right to the farthest position
-                temp_px = px
-                while not collideRight(grid, block, temp_px, py):
+                temp_px, temp_py = px, py
+                while not collideRight(grid, block, temp_px, temp_py):
                     temp_px += 1
-                    moves.append((temp_px, py, rotation))
+                    moves.append((temp_px, temp_py, rotation))
                 
                 # Rotate the block to next position
-                block.rotate(-1)
+                #block, px, py, _ = rotate(grid, block, px, py, _dir=1)
+                block.rotate(1)
             return moves
+        
+        def compute_reward(grid, cleared_lines, combo, height_sum, diff_sum, holes):
+            """Compute the reward for the given grid state."""
+            basic_reward = cleared_lines * 0.76
+            additional_reward = -0.36 * holes - 0.18 * diff_sum
+            combo_reward = combo * 0.5 if combo > 0 else 0
+            excess = len(grid[0]) - GRID_DEPTH
+            is_ko = False
+            for i in range(GRID_WIDTH):
+                if grid[i][excess] > 0:
+                    is_ko = True
+                    break
+            if is_ko == True:
+                ko_penalty = -100
+            else:
+                ko_penalty = 0
+            return basic_reward + additional_reward + combo_reward + ko_penalty
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""
@@ -1070,7 +1112,8 @@ class Tetris(object):
                 "rotate_left": 4,
                 "right": 5,
                 "left": 6,
-                "down": 7
+                "down": 7,
+                "keyup": 8
             }
             return [action_mapping[action] for action in actions]
 
@@ -1078,6 +1121,7 @@ class Tetris(object):
         final_states = []
         action_sequences = []
         was_held = []
+        rewards = []
 
         # Get the current grid and piece
         grid = deepcopy(self.grid)
@@ -1095,7 +1139,7 @@ class Tetris(object):
             if rotation == 1:
                 actions.append("rotate_right")
             elif rotation == 2:
-                actions.extend(["rotate_right", "rotate_right"])
+                actions.extend(["rotate_right", "keyup", "rotate_right"])
             elif rotation == 3:
                 actions.append("rotate_left")
             # Add horizontal moves
@@ -1109,6 +1153,11 @@ class Tetris(object):
             # Simulate the actions
             final_grid = simulate_actions(grid, block, px, py, actions)
 
+            # Compute the reward for the final state
+            height_sum, diff_sum, max_height, holes = get_infos(final_grid)
+            cleared_lines = sum(1 for row in final_grid if all(cell == 1 for cell in row))
+            reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
+
             # Rotate the grid to 10x20
             rotated_grid = np.transpose(final_grid)
 
@@ -1120,6 +1169,7 @@ class Tetris(object):
             final_states.append(rotated_grid)
             action_sequences.append(action_sequence)
             was_held.append(False)
+            rewards.append(reward)
 
         # Handle the hold mechanic
         held_block = deepcopy(self.held)
@@ -1134,12 +1184,12 @@ class Tetris(object):
             held_moves = generate_moves(grid, next_block, px, py)
             for move_px, move_py, rotation in held_moves:
                 # Simulate the actions to reach the final position
-                actions = ["hold"]
+                actions = ["hold", "NOOP"]
                 # Add rotations
                 if rotation == 1:
                     actions.append("rotate_right")
                 elif rotation == 2:
-                    actions.extend(["rotate_right", "rotate_right"])
+                    actions.extend(["rotate_right", "keyup", "rotate_right"])
                 elif rotation == 3:
                     actions.append("rotate_left")
                 # Add horizontal moves
@@ -1153,6 +1203,11 @@ class Tetris(object):
                 # Simulate the actions
                 final_grid = simulate_actions(grid, next_block, px, py, actions)
 
+                # Compute the reward for the final state
+                height_sum, diff_sum, max_height, holes = get_infos(final_grid)
+                cleared_lines = sum(1 for row in final_grid if all(cell == 1 for cell in row))
+                reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
+
                 # Map actions to integers
                 action_sequence = map_actions_to_integers(actions)
                 action_sequence.insert(0, 0)
@@ -1164,5 +1219,6 @@ class Tetris(object):
                 final_states.append(rotated_grid)
                 action_sequences.append(action_sequence)
                 was_held.append(True)
+                rewards.append(reward)
 
-        return final_states, action_sequences, was_held
+        return final_states, action_sequences, was_held, rewards

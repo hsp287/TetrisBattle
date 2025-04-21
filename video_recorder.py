@@ -25,6 +25,6 @@ class VideoRecorder:
             folder_path = os.path.join(self.save_dir, timestamp)
             os.makedirs(folder_path, exist_ok=True)
             video_path = os.path.join(folder_path, f"{video_name}.mp4")
-            imageio.mimsave(video_path, self.frames, fps=30)
+            imageio.mimsave(video_path, self.frames, fps=100)
             self.recording = False
             print(f"Video saved at: {video_path}")
