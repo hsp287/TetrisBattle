@@ -107,3 +107,5 @@ trained_models/
 
 # training data
 training/
+training_data/
+best_model.pth
