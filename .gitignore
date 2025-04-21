@@ -109,3 +109,4 @@ trained_models/
 training/
 training_videos/
 best_model.pth
+episodic_rewards.csv

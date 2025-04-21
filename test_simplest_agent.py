@@ -35,7 +35,7 @@ def simple_agent():
 
     # Get the corresponding action sequence
     best_action_sequence = action_sequences[chosen_index]
-    #print(best_action_sequence)
+    print(best_action_sequence)
 
     while not done:
         if step >= len(best_action_sequence):
@@ -56,7 +56,7 @@ def simple_agent():
 
             # Get the corresponding action sequence
             best_action_sequence = action_sequences[chosen_index]
-            #print(best_action_sequence)
+            print(best_action_sequence)
             step = 0
 
         # Get the next action
