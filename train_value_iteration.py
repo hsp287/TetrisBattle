@@ -52,7 +52,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
     csv_file = "episodic_rewards.csv"
     with open(csv_file, mode="w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Episode", "Total Reward", "Total Lines sent"])  # Write the header
+        writer.writerow(["Episode", "Average Reward", "Average Loss", "Total Lines sent"])  # Write the header
 
     # Initialize epsilon
     epsilon = epsilon_start
@@ -67,6 +67,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
         ep_return = 0
         episode_data = []   
         count = 0
+        ep_loss = 0
 
         # get initial action sequence
         # Access the Tetris instance
@@ -160,6 +161,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             # Compute loss
             v_s = value_net(s_tensor)
             loss = nn.MSELoss()(v_s, torch.tensor([[target]], dtype=torch.float32).to(device))
+            ep_loss += loss.item()
 
             # Backpropagation
             optimizer.zero_grad()
@@ -169,10 +171,10 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
         # Log the total reward and total lines sent
         with open(csv_file, mode="a", newline="") as file:
             writer = csv.writer(file)
-            writer.writerow([episode + 1, ep_return, total_sent])  # Write episode number, total reward, and total lines sent
+            writer.writerow([episode + 1, ep_return/count, ep_loss/count, total_sent])  # Write episode number, total reward, and total lines sent
 
         # Print the total reward and total lines sent
-        print(f"Episode {episode + 1}: Average Episodic Reward = {ep_return/count}, Total Lines Sent = {total_sent}")
+        print(f"Episode {episode + 1}: Average Episodic Reward = {ep_return/count}, Average Episodic Loss = {ep_loss/count}, Total Lines Sent = {total_sent}")
 
         # Save the best model based on `tetris.sent`
         if total_sent > best_sent:
@@ -197,4 +199,4 @@ if __name__ == "__main__":
 
     # Move the value network to the GPU
     value_net = ValueNetwork().to(device)
-    train_agent(num_episodes=200, gamma=0.95, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.95, device="cpu")
+    train_agent(num_episodes=1000, gamma=0.95, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.95, device="cpu")
