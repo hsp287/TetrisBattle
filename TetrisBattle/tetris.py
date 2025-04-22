@@ -988,7 +988,7 @@ class Tetris(object):
 
             # Transpose back to the original grid format
             cleared_grid = [[new_grid[y][x] for y in range(height)] for x in range(width)]
-            return cleared_grid
+            return cleared_grid, cleared_lines
 
         def simulate_actions(grid, block, px, py, actions):
             """Simulate a sequence of actions and return the resulting grid and position."""
@@ -1011,14 +1011,14 @@ class Tetris(object):
             put_block_in_grid(simulated_grid, simulated_block, simulated_px, simulated_py)
 
             # Clear full lines
-            simulated_grid = clear_full_lines(simulated_grid)
+            simulated_grid, cleared_lines = clear_full_lines(simulated_grid)
 
             # Convert grid to 1s and 0s
             for x in range(len(simulated_grid)):
                 for y in range(len(simulated_grid[0])):
                     if simulated_grid[x][y] >= 1:
                         simulated_grid[x][y] = 1
-            return simulated_grid
+            return simulated_grid, cleared_lines
         
         def compute_rotation_id(block):
             """
@@ -1086,10 +1086,38 @@ class Tetris(object):
             return moves
         
         def compute_reward(grid, cleared_lines, combo, height_sum, diff_sum, holes):
-            """Compute the reward for the given grid state."""
-            basic_reward = cleared_lines * 0.76
-            additional_reward = -0.36 * holes - 0.18 * diff_sum
-            combo_reward = combo * 0.5 if combo > 0 else 0
+            scores = 0
+            #print(cleared_lines)                
+            if cleared_lines >= 1: # for sending lines
+                combo += 1
+                if cleared_lines == 4: # a tetris
+                    tetris = 1
+                else:
+                    tetris = 0
+                pre_back2back = self.now_back2back   
+            else:
+                combo = -1
+                tetris = 0
+                pre_back2back = 0
+            # compute scores
+            if cleared_lines == 0:
+                scores = 0
+            else:
+                scores = cleared_lines if cleared_lines == 4 else cleared_lines - 1
+                # scores from combos
+                if combo > 0:
+                    if combo <= 8:
+                        combo_scores = int((combo + 1) / 2)
+                    else: combo_scores = 4
+                else:
+                    combo_scores = 0
+
+                scores += combo_scores
+                if pre_back2back:
+                    if tetris:
+                        scores += 2
+            basic_reward = cleared_lines * 0.8
+            additional_penalty = -0.3 * holes - 0.15 * diff_sum
             excess = len(grid[0]) - GRID_DEPTH
             is_ko = False
             for i in range(GRID_WIDTH):
@@ -1100,7 +1128,8 @@ class Tetris(object):
                 ko_penalty = -100
             else:
                 ko_penalty = 0
-            return basic_reward + additional_reward + combo_reward + ko_penalty
+
+            return scores + basic_reward + ko_penalty + additional_penalty
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""
@@ -1151,11 +1180,10 @@ class Tetris(object):
             actions.append("drop")
 
             # Simulate the actions
-            final_grid = simulate_actions(grid, block, px, py, actions)
+            final_grid, cleared_lines = simulate_actions(grid, block, px, py, actions)
 
             # Compute the reward for the final state
             height_sum, diff_sum, max_height, holes = get_infos(final_grid)
-            cleared_lines = sum(1 for row in final_grid if all(cell == 1 for cell in row))
             reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
 
             # Rotate the grid to 10x20
@@ -1201,11 +1229,10 @@ class Tetris(object):
                 actions.append("drop")
 
                 # Simulate the actions
-                final_grid = simulate_actions(grid, next_block, px, py, actions)
+                final_grid, cleared_lines = simulate_actions(grid, next_block, px, py, actions)
 
                 # Compute the reward for the final state
                 height_sum, diff_sum, max_height, holes = get_infos(final_grid)
-                cleared_lines = sum(1 for row in final_grid if all(cell == 1 for cell in row))
                 reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
 
                 # Map actions to integers
