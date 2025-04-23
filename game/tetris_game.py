@@ -552,6 +552,8 @@ class TetrisGameSingle(TetrisGame):
                 # Find the maximum reward
                 max_reward = max(rewards)
 
+                #print(tetris.get_grid()[1])
+                '''
                 # Print the results
                 print(f"Number of possible placements: {len(final_states)}")
                 print(f"Highest Reward: {max_reward}")
@@ -565,6 +567,7 @@ class TetrisGameSingle(TetrisGame):
                         print(f"Was Held: {held}")
                         print(f"Reward: {reward}")
                         print("-" * 50)
+                '''
                 
 
             self.renderer.drawGameScreen(tetris)

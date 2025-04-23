@@ -56,6 +56,7 @@ def simple_agent():
 
             # Get the corresponding action sequence
             best_action_sequence = action_sequences[chosen_index]
+            print(final_states[chosen_index])
             print(best_action_sequence)
             step = 0
 
