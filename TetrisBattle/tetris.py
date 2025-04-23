@@ -648,20 +648,21 @@ class Tetris(object):
                         return_grids[px + x][py + y - excess] = 0.7
         '''
 
-        informations = np.zeros(shape=(len(PIECE_NUM2TYPE) - 1, 7), dtype=np.float32)
+        informations = np.zeros(shape=(len(PIECE_NUM2TYPE) - 1, 8), dtype=np.float32)
+        informations[PIECE_TYPE2NUM[self.block.block_type()] - 1][0] = 1
         if self.held != None:
-            informations[PIECE_TYPE2NUM[self.held.block_type()] - 1][0] = 1
+            informations[PIECE_TYPE2NUM[self.held.block_type()] - 1][1] = 1
 
         nextpieces = self.buffer.now_list
         for i in range(5): # 5 different pieces 
             _type = nextpieces[i].block_type()
-            informations[PIECE_TYPE2NUM[_type] - 1][i + 1] = 1
+            informations[PIECE_TYPE2NUM[_type] - 1][i + 2] = 1
         # index start from 6
 
-        informations[0][6] = self.sent / 100
-        informations[1][6] = self.combo / 10
-        informations[2][6] = self.pre_back2back
-        informations[3][6] = self._attacked / GRID_DEPTH
+        informations[0][7] = self.sent / 100
+        informations[1][7] = self.combo / 10
+        informations[2][7] = self.pre_back2back
+        informations[3][7] = self._attacked / GRID_DEPTH
         # informations[3][7] = self.time / MAX_TIME
 
         #return_grids = np.concatenate((return_grids, informations), axis=0)
@@ -1000,9 +1001,9 @@ class Tetris(object):
 
             for action in actions:
                 if action == "rotate_right":
-                    simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=-1)
-                elif action == "rotate_left":
                     simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=1)
+                elif action == "rotate_left":
+                    simulated_block, simulated_px, simulated_py, _ = rotate(simulated_grid, simulated_block, simulated_px, simulated_py, _dir=-1)
                 elif action == "left" and not collideLeft(simulated_grid, simulated_block, simulated_px, simulated_py):
                     simulated_px -= 1
                 elif action == "right" and not collideRight(simulated_grid, simulated_block, simulated_px, simulated_py):
@@ -1060,11 +1061,12 @@ class Tetris(object):
             """Generate all possible moves for the current block."""
             moves = []
             visited_rotations = set()
+            b = deepcopy(block)
             for rotation in range(len(block.possible_shapes)):
                 # Skip redundant rotations for symmetric pieces
-                if compute_rotation_id(block) in visited_rotations:
+                if compute_rotation_id(b) in visited_rotations:
                     continue
-                visited_rotations.add(compute_rotation_id(block))
+                visited_rotations.add(compute_rotation_id(b))
 
                 #print(min(x for x, y in block.get_feasible()), max(x for x, y in block.get_feasible()))
 
@@ -1073,18 +1075,19 @@ class Tetris(object):
 
                 temp_px, temp_py = px, py
                 # Simulate moving left to the farthest position
-                while not collideLeft(grid, block, temp_px, temp_py):
+                while not collideLeft(grid, b, temp_px, temp_py):
                     temp_px -= 1
                     moves.append((temp_px, temp_py, rotation))
                 # Simulate moving right to the farthest position
                 temp_px, temp_py = px, py
-                while not collideRight(grid, block, temp_px, temp_py):
+                while not collideRight(grid, b, temp_px, temp_py):
                     temp_px += 1
                     moves.append((temp_px, temp_py, rotation))
                 
                 # Rotate the block to next position
                 #block, px, py, _ = rotate(grid, block, px, py, _dir=1)
-                block.rotate(1)
+                #block.rotate(1)
+                b.current_shape_id = (1 + rotation) % 4
             return moves
         
         def compute_reward(grid, cleared_lines, combo, height_sum, diff_sum, holes):
