@@ -161,6 +161,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             # Compute loss
             v_s = value_net(s_tensor)
             loss = nn.MSELoss()(v_s, torch.tensor([[target]], dtype=torch.float32).to(device))
+            torch.nn.utils.clip_grad_norm_(value_net.parameters(), max_norm=1.0)
             ep_loss += loss.item()
 
             # Backpropagation

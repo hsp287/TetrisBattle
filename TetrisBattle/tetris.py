@@ -635,7 +635,8 @@ class Tetris(object):
             return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
         
         add_y = hardDrop(self.grid, self.block, self.px, self.py)
-
+        
+        '''
         for x in range(BLOCK_WIDTH):
             for y in range(BLOCK_LENGTH):
                 if b[x][y] > 0:
@@ -645,6 +646,7 @@ class Tetris(object):
                         
                     if -1 < px + x < 10 and -1 < py + y - excess < 20:
                         return_grids[px + x][py + y - excess] = 0.7
+        '''
 
         informations = np.zeros(shape=(len(PIECE_NUM2TYPE) - 1, 7), dtype=np.float32)
         if self.held != None:
