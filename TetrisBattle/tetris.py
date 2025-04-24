@@ -1021,6 +1021,15 @@ class Tetris(object):
                 for y in range(len(simulated_grid[0])):
                     if simulated_grid[x][y] >= 1:
                         simulated_grid[x][y] = 1
+            
+            excess = len(simulated_grid[0]) - GRID_DEPTH
+
+            # build garbage lines for 2 player
+            if excess > 0:
+                garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
+                garbage_rows = np.tile(garbage_row, excess)
+                simulated_grid = np.concatenate((simulated_grid, garbage_rows), axis=1)
+
             return simulated_grid, cleared_lines
         
         def compute_rotation_id(block):
@@ -1134,7 +1143,8 @@ class Tetris(object):
             else:
                 ko_penalty = 0
 
-            return scores + basic_reward + ko_penalty + additional_penalty
+            return 2.0*scores + basic_reward + ko_penalty + additional_penalty
+            #return scores + ko_penalty
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""
