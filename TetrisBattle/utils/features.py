@@ -10,9 +10,10 @@ def piece_to_one_hot(piece_type):
 def get_features(grid):
 
     heights = get_column_heights(grid)
+    diff = get_column_height_diff(heights)
     holes = get_holes(grid)
 
-    return (heights, holes)
+    return (heights, diff, holes)
 
 def get_column_heights(grid):
     heights = [0] * GRID_WIDTH
@@ -27,6 +28,19 @@ def get_column_heights(grid):
                 break 
 
     return heights
+
+def get_column_height_diff(heights):
+    diff = [0] * (len(heights) - 1)
+    
+    for i in range(len(heights)):
+        if i == 0:
+            diff[i] = abs(heights[i+1] - heights[i])
+        elif i == len(heights) - 1:
+            diff[i] = abs(heights[i] - heights[i-1])
+        else:
+            diff[i] = max(abs(heights[i+1] - heights[i]), abs(heights[i] - heights[i-1]))
+
+    return diff
 
 def get_holes(grid):
     holes = [0] * GRID_WIDTH
