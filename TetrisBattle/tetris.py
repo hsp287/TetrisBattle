@@ -1143,8 +1143,8 @@ class Tetris(object):
             else:
                 ko_penalty = 0
 
-            return 2.0*scores + basic_reward + ko_penalty + additional_penalty
-            #return scores + ko_penalty
+            return 4.0*scores + additional_penalty
+            #return scores 
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""

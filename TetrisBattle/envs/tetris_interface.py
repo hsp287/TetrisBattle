@@ -545,112 +545,121 @@ class TetrisDoubleInterface(TetrisInterface):
         
         end = 0
         scores = 0
+        ob_list = []
+        reward_list = []
+        infos_list = []
 
-        player, opponent = self.tetris_list[self.now_player], self.tetris_list[::-1][self.now_player]
-        tetris = player["tetris"]
-        com_event = player["com_event"]
-        pos = player["pos"]
 
-        self.task_before_action(player)
+        for i in range(self.num_players):
+            player, opponent = self.tetris_list[self.now_player], self.tetris_list[::-1][self.now_player]
+            tetris = player["tetris"]
+            com_event = player["com_event"]
+            pos = player["pos"]
 
-        action = self.get_true_action(player, action)
+            self.task_before_action(player)
 
-        tetris.natural_down()
+            action_agent = self.get_true_action(player, action[i])
 
-        com_event.set([action])
+            tetris.natural_down()
 
-        for evt in com_event.get():
-            tetris.trigger(evt)
+            com_event.set([action_agent])
 
-        tetris.move()
+            for evt in com_event.get():
+                tetris.trigger(evt)
 
-        scores = 0
+            tetris.move()
 
-        if tetris.check_fallen():
-            # compute the scores and attack the opponent
-            scores = tetris.clear()
+            scores = 0
 
-            opponent["tetris"].add_attacked(scores)
+            if tetris.check_fallen():
+                # compute the scores and attack the opponent
+                scores = tetris.clear()
 
-            self.renderer.drawCombo(tetris, *pos["combo"])
+                opponent["tetris"].add_attacked(scores)
 
-            self.renderer.drawTetris(tetris, *pos["tetris"])
-            self.renderer.drawTspin(tetris, *pos["tspin"])
-            self.renderer.drawBack2Back(tetris, *pos["back2back"])
+                self.renderer.drawCombo(tetris, *pos["combo"])
 
-            if tetris.check_KO():
+                self.renderer.drawTetris(tetris, *pos["tetris"])
+                self.renderer.drawTspin(tetris, *pos["tspin"])
+                self.renderer.drawBack2Back(tetris, *pos["back2back"])
+
+                if tetris.check_KO():
+                    
+                    self.renderer.drawBoard(tetris, *pos["board"])
+                    
+                    opponent["tetris"].update_ko()
+
+                    tetris.clear_garbage()
+
+                    self.renderer.drawByName("ko", *pos["ko"])
+                    self.renderer.drawByName("transparent", *pos["transparent"])
+
+                    # screen.blit(kos[tetris_2.get_KO() - 1], (426, 235))
+                    pygame.display.flip()
+
+                    # scores -= 1
+
+                    # end = 1
+
+                tetris.new_block()
+
+            self.renderer.drawGameScreen(tetris)
+
+            tetris.increment_timer()
+
+            if tetris.attacked == 0:
+                pygame.draw.rect(self.screen, (30, 30, 30), pos["attack_clean"]) 
+
+            if tetris.attacked != 0:
                 
-                self.renderer.drawBoard(tetris, *pos["board"])
+                for j in range(tetris.attacked):
+                    pos_attack_alarm = list(pos["attack_alarm"])
+                    # modified the y axis of the rectangle, according to the strength of attack
+                    pos_attack_alarm[1] = pos_attack_alarm[1] - 18 * j
+                    pygame.draw.rect(self.screen, (255, 0, 0), pos_attack_alarm) 
+
+            if tetris.KO > 0:
+                self.renderer.drawKO(tetris.KO, *pos["big_ko"])
                 
-                opponent["tetris"].update_ko()
+            self.renderer.drawScreen(tetris, *pos["drawscreen"])
 
-                tetris.clear_garbage()
+                # SCREEN.blit(IMAGES["transparent"], (494, 135))
 
-                self.renderer.drawByName("ko", *pos["ko"])
-                self.renderer.drawByName("transparent", *pos["transparent"])
+            if Judge.check_ko_win(tetris, max_ko=3):
+                end = 1
+                winner = tetris.get_id()
 
-                # screen.blit(kos[tetris_2.get_KO() - 1], (426, 235))
-                pygame.display.flip()
+            if Judge.check_ko_win(opponent["tetris"], max_ko=3):
+                end = 1
+                winner = opponent["tetris"].get_id()
 
-                # scores -= 1
+            self.time = self.update_time(self.time)
 
-                # end = 1
+            if self.time == 0:
+                winner = Judge.who_win(tetris, opponent["tetris"])
+                end = 1
 
-            tetris.new_block()
-
-        self.renderer.drawGameScreen(tetris)
-
-        tetris.increment_timer()
-
-        if tetris.attacked == 0:
-            pygame.draw.rect(self.screen, (30, 30, 30), pos["attack_clean"]) 
-
-        if tetris.attacked != 0:
+            self.renderer.drawTime2p(self.time)
             
-            for j in range(tetris.attacked):
-                pos_attack_alarm = list(pos["attack_alarm"])
-                # modified the y axis of the rectangle, according to the strength of attack
-                pos_attack_alarm[1] = pos_attack_alarm[1] - 18 * j
-                pygame.draw.rect(self.screen, (255, 0, 0), pos_attack_alarm) 
+            self.myClock.tick(FPS)  
+            pygame.display.flip()
 
-        if tetris.KO > 0:
-            self.renderer.drawKO(tetris.KO, *pos["big_ko"])
-            
-        self.renderer.drawScreen(tetris, *pos["drawscreen"])
+            ob = self.get_obs()
 
-            # SCREEN.blit(IMAGES["transparent"], (494, 135))
+            infos = {'now_player': self.now_player}
 
-        if Judge.check_ko_win(tetris, max_ko=3):
-            end = 1
-            winner = tetris.get_id()
+            if end:
+                # freeze(0.5)
+                #print(winner)
 
-        if Judge.check_ko_win(opponent["tetris"], max_ko=3):
-            end = 1
-            winner = opponent["tetris"].get_id()
+                infos['winner'] = winner
 
-        self.time = self.update_time(self.time)
+                # self.reset()
 
-        if self.time == 0:
-            winner = Judge.who_win(tetris, opponent["tetris"])
-            end = 1
+            reward = self.reward_func(infos)
+            ob_list.append(ob)
+            infos_list.append(infos)
+            reward_list.append(reward)
+            self.take_turns()
 
-        self.renderer.drawTime2p(self.time)
-        
-        self.myClock.tick(FPS)  
-        pygame.display.flip()
-
-        ob = self.get_obs()
-
-        infos = {'now_player': self.now_player}
-
-        if end:
-            # freeze(0.5)
-            print(winner)
-
-            infos['winner'] = winner
-
-            # self.reset()
-
-        reward = self.reward_func(infos)
-
-        return ob, reward, end, infos
+        return ob_list, reward_list, end, infos_list

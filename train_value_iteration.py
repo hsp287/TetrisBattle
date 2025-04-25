@@ -148,6 +148,12 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             total_sent = tetris.sent
             recorder.capture_frame(env.game_interface.screen)
 
+        if tetris.check_KO():
+            last_state, last_reward, last_future_state = episode_data[-1]
+            updated_reward = last_reward - 100
+            episode_data[-1] = (last_state, updated_reward, last_future_state)
+            ep_return += updated_reward
+
         for s, r, s_prime in episode_data:
             # Convert states to tensors
             s_tensor = torch.tensor(s, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
@@ -200,4 +206,4 @@ if __name__ == "__main__":
 
     # Move the value network to the GPU
     value_net = ValueNetwork().to(device)
-    train_agent(num_episodes=1000, gamma=0.95, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.95, device="cpu")
+    train_agent(num_episodes=1000, gamma=0.98, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.985, device="cpu")
