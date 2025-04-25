@@ -206,4 +206,4 @@ if __name__ == "__main__":
 
     # Move the value network to the GPU
     value_net = ValueNetwork().to(device)
-    train_agent(num_episodes=1000, gamma=0.98, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.985, device="cpu")
+    train_agent(num_episodes=1000, gamma=0.95, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.985, device="cpu")
