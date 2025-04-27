@@ -910,7 +910,10 @@ class Tetris(object):
         self.cleared = cleared
         self.sent += scores
 
-        real_attacked = max(0, self._attacked - scores)
+        real_attacked = max(0, self._attacked - self.cleared)
+        scores -= real_attacked
+        if scores < 0:
+            scores = 0
 
         self.build_garbage(self.grid, real_attacked)
 
@@ -982,8 +985,8 @@ class Tetris(object):
         """
         def clear_full_lines(grid):
             """Clear full lines from the grid and shift remaining rows down."""
-            width = len(grid)
-            height = len(grid[0])
+            width = GRID_WIDTH
+            height = GRID_DEPTH
 
             # Identify rows that are not full
             new_grid = []
@@ -1028,14 +1031,6 @@ class Tetris(object):
                 for y in range(len(simulated_grid[0])):
                     if simulated_grid[x][y] >= 1:
                         simulated_grid[x][y] = 1
-            
-            excess = len(simulated_grid[0]) - GRID_DEPTH
-
-            # build garbage lines for 2 player
-            if excess > 0:
-                garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
-                garbage_rows = np.tile(garbage_row, excess)
-                simulated_grid = np.concatenate((simulated_grid, garbage_rows), axis=1)
 
             return simulated_grid, cleared_lines
         
@@ -1178,6 +1173,7 @@ class Tetris(object):
         grid = deepcopy(self.grid)
         block = deepcopy(self.block)
         px, py = 4, -2 + len(self.grid[0]) - GRID_DEPTH
+        excess = min(len(grid[0]) - GRID_DEPTH, GRID_DEPTH)
 
         # Generate all possible moves for the current piece
         moves = generate_moves(grid, block, px, py)
@@ -1208,8 +1204,20 @@ class Tetris(object):
             height_sum, diff_sum, max_height, holes = get_infos(final_grid)
             reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
 
+            # for two players add garbage lines
+            return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
+            
+            for i in range(len(final_grid)):
+                return_grids[i] = np.array(final_grid[i][excess:GRID_DEPTH], dtype=np.float32)
+            return_grids[return_grids > 0] = 1
+            # add garbage lines
+            if excess > 0:
+                garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
+                garbage_rows = np.tile(garbage_row, excess)
+                return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
+
             # Rotate the grid to 10x20
-            rotated_grid = np.transpose(final_grid)
+            rotated_grid = np.transpose(return_grids)
 
             # Map actions to integers
             action_sequence = map_actions_to_integers(actions)
@@ -1257,12 +1265,24 @@ class Tetris(object):
                 height_sum, diff_sum, max_height, holes = get_infos(final_grid)
                 reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
 
+                # for two players add garbage lines
+                return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
+                
+                for i in range(len(final_grid)):
+                    return_grids[i] = np.array(final_grid[i][excess:GRID_DEPTH], dtype=np.float32)
+                return_grids[return_grids > 0] = 1
+                # add garbage lines
+                if excess > 0:
+                    garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
+                    garbage_rows = np.tile(garbage_row, excess)
+                    return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
+
                 # Map actions to integers
                 action_sequence = map_actions_to_integers(actions)
                 action_sequence.insert(0, 0)
 
                 # Rotate the grid to 10x20
-                rotated_grid = np.transpose(final_grid)
+                rotated_grid = np.transpose(return_grids)
 
                 # Record the final state and actions
                 final_states.append(rotated_grid)

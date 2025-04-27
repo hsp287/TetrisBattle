@@ -366,7 +366,8 @@ class TetrisGameDouble(TetrisGame):
                         # end = 1
 
                     tetris.new_block()
-                    #print(get_features(tetris.get_grid()[0]))
+                    #print(tetris.get_grid()[0])
+
                     '''
                     # Get all possible states
                     final_states, action_sequences, was_held, rewards = tetris.get_all_possible_states()
@@ -387,6 +388,7 @@ class TetrisGameDouble(TetrisGame):
                             print(f"Reward: {reward}")
                             print("-" * 50)
                     '''
+
 
                 self.renderer.drawGameScreen(tetris)
 

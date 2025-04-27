@@ -8,6 +8,7 @@ import csv
 import random
 from copy import deepcopy
 from TetrisBattle.utils.features import *
+from TetrisBattle.tetris import get_infos
 
 
 class ValueNetwork(nn.Module):
@@ -90,7 +91,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
         # Access the Tetris instance
         tetris = env.game_interface.tetris_list[0]["tetris"]
         grid_state = state["grid"][1]
-        info_state = state["info"][1][:5]
+        info_state = state["info"][1][:6]
 
         while not done:
             # Get all possible states
@@ -102,23 +103,29 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             future_info = deepcopy(info_state[:4])
             for grid, reward in zip(final_states, rewards):
                 if was_held:
-                    future_info[0] = info_state[2]
-                    future_info[1] = info_state[0]
-                    future_info[2] = info_state[3]
-                    future_info[3] = info_state[4]
+                    if tetris.held is not None:
+                        future_info[0] = info_state[2]
+                        future_info[1] = info_state[0]
+                        future_info[2] = info_state[3]
+                        future_info[3] = info_state[4]
+                    else:
+                        future_info[0] = info_state[3]
+                        future_info[1] = info_state[0]
+                        future_info[2] = info_state[4]
+                        future_info[3] = info_state[5]
                 else:
                     future_info[0] = info_state[2]
                     future_info[1] = info_state[1]
                     future_info[2] = info_state[3]
                     future_info[3] = info_state[4]
                 grid_tensor = torch.tensor(grid, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)  # Add batch and channel dims
-                height_sum, diff_sum, max_height, holes= tetris.get_infos(grid)
+                height_sum, diff_sum, max_height, holes = get_infos(grid)
                 piece_vec = torch.tensor(future_info.flatten(), dtype=torch.float32).unsqueeze(0).to(device)
                 board_vec = torch.tensor([diff_sum, holes],dtype=torch.float32).unsqueeze(0).to(device)
                 info_tensor = torch.cat([piece_vec, board_vec], dim=1)
-                value = value_net(grid_tensor, piece_vec).item()
+                value = value_net(grid_tensor, info_tensor).item()
                 future_values.append(reward + value)
-                future_infos.append(piece_vec)
+                future_infos.append(info_tensor)
 
             # Select the best future state
             # Epsilon-greedy selection
@@ -129,9 +136,9 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             best_action_sequence = action_sequences[best_index]
             best_future_state = final_states[best_index]
             best_reward = rewards[best_index]
-            best_info   = future_infos[best_index]
+            best_info = future_infos[best_index]
 
-            height_sum, diff_sum, max_height, holes= tetris.get_infos(grid_state)
+            height_sum, diff_sum, max_height, holes = get_infos(grid_state)
             piece_vec = torch.tensor(info_state[:4].flatten(), dtype=torch.float32).unsqueeze(0).to(device)
             board_vec = torch.tensor([diff_sum, holes],dtype=torch.float32).unsqueeze(0).to(device)
             current_info = torch.cat([piece_vec, board_vec], dim=1)
@@ -160,7 +167,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             # get new current state + info
             if not done:
                 grid_state = state["grid"][1]
-                info_state = state["info"][1][:5]
+                info_state = state["info"][1][:6]
 
         if tetris.check_KO():
             s1, s2, r, s1_prime, s2_prime = episode_data[-1]
