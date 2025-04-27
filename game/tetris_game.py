@@ -5,6 +5,8 @@ from TetrisBattle.settings import *
 import time as t
 
 from TetrisBattle.renderer import Renderer
+from TetrisBattle.utils.features import *
+import random
 
 from TetrisBattle.tetris import Tetris, Player, Judge, collideDown, collide, collideLeft, collideRight, \
     hardDrop, freeze, get_infos
@@ -261,6 +263,8 @@ class TetrisGameDouble(TetrisGame):
         self.timer2p.tick()
         #the code below is what happens when you set a map
         #different maps = differnet grids
+
+        shared_seed = random.randint(0, 2**32 - 1)
                
         pygame.init() #for music
         battlemusic = pygame.mixer.Sound(MUSIC_PATH)#importing sound file
@@ -303,7 +307,7 @@ class TetrisGameDouble(TetrisGame):
         for i in range(self.num_players):
             tetris_list.append({
                 'info_dict': info_dict_list[i],
-                'tetris': Tetris(Player(info_dict_list[i]), gridchoice),
+                'tetris': Tetris(Player(info_dict_list[i]), gridchoice, seed=shared_seed),
                 'pos': POS_LIST[i]
             })
 
@@ -362,7 +366,7 @@ class TetrisGameDouble(TetrisGame):
                         # end = 1
 
                     tetris.new_block()
-                    #print(tetris.get_grid()[0])
+                    #print(get_features(tetris.get_grid()[0]))
                     '''
                     # Get all possible states
                     final_states, action_sequences, was_held, rewards = tetris.get_all_possible_states()
@@ -388,6 +392,7 @@ class TetrisGameDouble(TetrisGame):
 
                 tetris.increment_timer()
 
+                #print(tetris.attacked)
                 if tetris.attacked == 0:
                     pygame.draw.rect(self.screen, (30, 30, 30), pos["attack_clean"]) 
 

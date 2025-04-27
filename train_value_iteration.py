@@ -1,6 +1,6 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
+import torch # type: ignore
+import torch.nn as nn # type: ignore
+import torch.optim as optim # type: ignore
 from TetrisBattle.settings import *
 from TetrisBattle.envs.tetris_env import TetrisSingleEnv
 from video_recorder import VideoRecorder
@@ -167,12 +167,12 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             # Compute loss
             v_s = value_net(s_tensor)
             loss = nn.MSELoss()(v_s, torch.tensor([[target]], dtype=torch.float32).to(device))
-            torch.nn.utils.clip_grad_norm_(value_net.parameters(), max_norm=1.0)
             ep_loss += loss.item()
 
             # Backpropagation
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(value_net.parameters(), max_norm=1.0)
             optimizer.step()
 
         # Log the total reward and total lines sent
@@ -202,8 +202,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
 if __name__ == "__main__":
     # Check if GPU is available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #print(device)
-
-    # Move the value network to the GPU
-    value_net = ValueNetwork().to(device)
-    train_agent(num_episodes=1000, gamma=0.98, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.985, device="cpu")
+    print("PyTorch version:", torch.__version__)
+    print("CUDA version supported by PyTorch:", torch.version.cuda)
+    print(device)
+    train_agent(num_episodes=1000, gamma=0.95, learning_rate=1e-3, record_interval=10, epsilon_start=1.0, epsilon_end=0.00, epsilon_decay=0.985, device=device)

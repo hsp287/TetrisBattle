@@ -1,6 +1,6 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
+import torch # type: ignore
+import torch.nn as nn # type: ignore
+import torch.optim as optim # type: ignore
 from TetrisBattle.settings import *
 from TetrisBattle.envs.tetris_env import TetrisDoubleEnv
 from video_recorder import VideoRecorder
@@ -38,8 +38,9 @@ class ValueNetwork(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def agent_future_state(env, tetris, value_net, episode_data, epsilon, state, player):
+def agent_future_state(env, value_net, episode_data, epsilon, state, player):
     # Get all possible states
+    tetris = env.game_interface.tetris_list[player-1]["tetris"]
     final_states, action_sequences, was_held, rewards = tetris.get_all_possible_states()
 
     # Compute r(s'|s) + V(s') for each possible state
@@ -114,31 +115,22 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
 
         # get initial action sequence
         # Access the Tetris instance
-        tetris1 = env.game_interface.tetris_list[0]["tetris"]
-        tetris2 = env.game_interface.tetris_list[1]["tetris"]
-
-        best_action_sequence1, episode_data1, best_reward1 = agent_future_state(env, tetris1, value_net1, episode_data1, epsilon, state, player=1)
+        best_action_sequence1, episode_data1, best_reward1 = agent_future_state(env, value_net1, episode_data1, epsilon, state, player=1)
         ep_return1 += best_reward1
-        best_action_sequence2, episode_data2, best_reward2 = agent_future_state(env, tetris2, value_net2, episode_data2, epsilon, state, player=2)
+        best_action_sequence2, episode_data2, best_reward2 = agent_future_state(env, value_net2, episode_data2, epsilon, state, player=2)
         ep_return2 += best_reward2
 
         while not done:
             if step1 >= len(best_action_sequence1):
-                # Access the Tetris instance for agent 1
-                tetris1 = env.game_interface.tetris_list[0]["tetris"]
-                
                 # Get all possible states for agent 1
-                best_action_sequence1, episode_data1, best_reward1 = agent_future_state(env, tetris1, value_net1, episode_data1, epsilon, state1, player=1)
+                best_action_sequence1, episode_data1, best_reward1 = agent_future_state(env, value_net1, episode_data1, epsilon, state, player=1)
                 ep_return1 += best_reward1
                 step1 = 0
                 count1 += 1
             
             if step2 >= len(best_action_sequence2):
-                # Access the Tetris instance for agent 2
-                tetris1 = env.game_interface.tetris_list[1]["tetris"]
-                
                 # Get all possible states for agent 2
-                best_action_sequence2, episode_data2, best_reward2 = agent_future_state(env, tetris2, value_net2, episode_data2, epsilon, state2, player=2)
+                best_action_sequence2, episode_data2, best_reward2 = agent_future_state(env, value_net2, episode_data2, epsilon, state, player=2)
                 ep_return2 += best_reward2
                 step2 = 0
                 count2 += 1
@@ -149,14 +141,15 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             action2 = best_action_sequence2[step2]
 
             # Check if the action is the same as the last action
+            tetris1 = env.game_interface.tetris_list[0]["tetris"]
+            tetris2 = env.game_interface.tetris_list[1]["tetris"]
             step1 = check_action_time(tetris1, action1, step1)
             step2 = check_action_time(tetris2, action2, step2)
-            print(f"step1: {step1}, step2: {step2}")
+
+            action = [action1, action2]
             
             env.now_player = 0
-            state1, reward, done, info = env.step(action1)
-            env.now_player = 1
-            state2, reward, done, info = env.step(action2)
+            state, reward, done, info = env.step(action)
             total_sent1 = tetris1.sent
             total_sent2 = tetris2.sent
             recorder.capture_frame(env.game_interface.screen)

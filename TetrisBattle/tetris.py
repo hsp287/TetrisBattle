@@ -368,12 +368,19 @@ class Buffer(object):
     '''
     Stores the coming pieces, every 7 pieces in a group.
     '''
-    def __init__(self):
+    def __init__(self, seed=None):
         self.now_list = []
         self.next_list = []
 
+        # Generate a random seed
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)
+        self.seed = seed
+        self.rng = random.Random(self.seed)
+
         self.fill(self.now_list)
         self.fill(self.next_list)
+
 
     '''
     make sure "now list" are filled
@@ -393,7 +400,7 @@ class Buffer(object):
 
     def fill(self, _list):
         pieces_keys = deepcopy(POSSIBLE_KEYS)
-        random.shuffle(pieces_keys)
+        self.rng.shuffle(pieces_keys)
 
         for key in pieces_keys:
             _list.append(Piece(key, PIECES_DICT[key]))
@@ -484,7 +491,7 @@ class Judge(object):
                 return tetris_1.get_id() # no UI of draw
 
 class Tetris(object):
-    def __init__(self, player, gridchoice):
+    def __init__(self, player, gridchoice, seed=None):
 
         if gridchoice == "none":
             self.o_grid = [[0] * GRID_DEPTH for i in range(GRID_WIDTH)]
@@ -528,16 +535,16 @@ class Tetris(object):
 
         self.player = player
 
-        self.reset()
+        self.reset(seed)
 
-    def reset(self):
+    def reset(self, seed=None):
         self.grid = deepcopy(self.o_grid)
 
         self.oldko = 0 # these two used to keep track of ko's
 
         self._n_used_block = 1
 
-        self.buffer = Buffer()
+        self.buffer = Buffer(seed)
         # list of the held piece
         self.held = None
         self.block = self.buffer.new_block()
@@ -619,7 +626,7 @@ class Tetris(object):
         return self._attacked
     
     def get_grid(self):
-        excess = len(self.grid[0]) - GRID_DEPTH
+        excess = min(len(self.grid[0]) - GRID_DEPTH, GRID_DEPTH)
         return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
         
         block, px, py = self.block, self.px, self.py
@@ -671,7 +678,7 @@ class Tetris(object):
         #return np.transpose(informations, (1, 0))
 
     def get_board(self):
-        excess = len(self.grid[0]) - GRID_DEPTH
+        excess = min(len(self.grid[0]) - GRID_DEPTH, GRID_DEPTH)
         return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
         
         # block, px, py = self.block, self.px, self.py
@@ -1143,8 +1150,8 @@ class Tetris(object):
             else:
                 ko_penalty = 0
 
-            return 4.0*scores + additional_penalty
-            #return scores 
+            return 4.0*scores + additional_penalty  # for dense reward
+            #return scores # for sparse reward
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""
