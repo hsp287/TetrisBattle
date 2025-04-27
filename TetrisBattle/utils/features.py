@@ -18,7 +18,7 @@ def get_features(grid):
 def get_column_heights(grid):
     heights = [0] * GRID_WIDTH
 
-    if not grid:
+    if grid is None or (hasattr(grid, "size") and getattr(grid, "size") == 0):
         return heights
 
     for j in range(GRID_WIDTH):
@@ -45,7 +45,7 @@ def get_column_height_diff(heights):
 def get_holes(grid):
     holes = [0] * GRID_WIDTH
 
-    if not grid:
+    if grid is None or (hasattr(grid, "size") and getattr(grid, "size") == 0):
         return holes
 
     for j in range(GRID_WIDTH):

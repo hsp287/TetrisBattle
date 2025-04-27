@@ -158,6 +158,9 @@ class TetrisInterface(abc.ABC):
         self._fix_speed_cross_device = True
         self._fix_fps = FPS
 
+        # shared seed for two players
+        self.shared_seed = random.randint(0, 2**32 - 1)
+
     @property 
     def action_meaning(self):
         return self._action_meaning
@@ -258,8 +261,11 @@ class TetrisInterface(abc.ABC):
     def reset(self):
         # Reset the state of the environment to an initial state
 
+        # Generate a new shared seed
+        self.shared_seed = random.randint(0, 2**32 - 1)
+
         self.time = MAX_TIME
-        self.now_player = random.randint(0, self.num_players - 1)
+        self.now_player = 0
         self.total_reward = 0
         self.curr_repeat_time = 0 # denote the current repeat times
         self.last_infos = {'height_sum': 0, 
@@ -276,7 +282,7 @@ class TetrisInterface(abc.ABC):
             pos = player["pos"]
             player["curr_repeat_time"] = 0
             player["last_action"] = 0
-            tetris.reset()
+            tetris.reset(self.shared_seed)
 
             com_event.reset()
             self.renderer.drawByName("gamescreen", pos["gamescreen"][0], pos["gamescreen"][1]) # blitting the main background
@@ -526,7 +532,7 @@ class TetrisDoubleInterface(TetrisInterface):
 
             self.tetris_list.append({
                 'info_dict': info_dict,
-                'tetris': Tetris(Player(info_dict), gridchoice),
+                'tetris': Tetris(Player(info_dict), gridchoice, seed=self.shared_seed),
                 'com_event': ComEvent(),
                 'pos': POS_LIST[i]
             })
@@ -545,10 +551,6 @@ class TetrisDoubleInterface(TetrisInterface):
         
         end = 0
         scores = 0
-        ob_list = []
-        reward_list = []
-        infos_list = []
-
 
         for i in range(self.num_players):
             player, opponent = self.tetris_list[self.now_player], self.tetris_list[::-1][self.now_player]
@@ -625,19 +627,13 @@ class TetrisDoubleInterface(TetrisInterface):
 
                 # SCREEN.blit(IMAGES["transparent"], (494, 135))
 
-            if Judge.check_ko_win(tetris, max_ko=3):
+            if Judge.check_ko_win(tetris, max_ko=1):
                 end = 1
                 winner = tetris.get_id()
 
-            if Judge.check_ko_win(opponent["tetris"], max_ko=3):
+            if Judge.check_ko_win(opponent["tetris"], max_ko=1):
                 end = 1
                 winner = opponent["tetris"].get_id()
-
-            self.time = self.update_time(self.time)
-
-            if self.time == 0:
-                winner = Judge.who_win(tetris, opponent["tetris"])
-                end = 1
 
             self.renderer.drawTime2p(self.time)
             
@@ -657,9 +653,12 @@ class TetrisDoubleInterface(TetrisInterface):
                 # self.reset()
 
             reward = self.reward_func(infos)
-            ob_list.append(ob)
-            infos_list.append(infos)
-            reward_list.append(reward)
             self.take_turns()
 
-        return ob_list, reward_list, end, infos_list
+        self.time = self.update_time(self.time)
+
+        if self.time == 0:
+            winner = Judge.who_win(tetris, opponent["tetris"])
+            end = 1
+
+        return ob, reward, end, infos

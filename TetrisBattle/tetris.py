@@ -368,12 +368,19 @@ class Buffer(object):
     '''
     Stores the coming pieces, every 7 pieces in a group.
     '''
-    def __init__(self):
+    def __init__(self, seed=None):
         self.now_list = []
         self.next_list = []
 
+        # Generate a random seed
+        if seed is None:
+            seed = random.randint(0, 2**32 - 1)
+        self.seed = seed
+        self.rng = random.Random(self.seed)
+
         self.fill(self.now_list)
         self.fill(self.next_list)
+
 
     '''
     make sure "now list" are filled
@@ -393,7 +400,7 @@ class Buffer(object):
 
     def fill(self, _list):
         pieces_keys = deepcopy(POSSIBLE_KEYS)
-        random.shuffle(pieces_keys)
+        self.rng.shuffle(pieces_keys)
 
         for key in pieces_keys:
             _list.append(Piece(key, PIECES_DICT[key]))
@@ -484,7 +491,7 @@ class Judge(object):
                 return tetris_1.get_id() # no UI of draw
 
 class Tetris(object):
-    def __init__(self, player, gridchoice):
+    def __init__(self, player, gridchoice, seed=None):
 
         if gridchoice == "none":
             self.o_grid = [[0] * GRID_DEPTH for i in range(GRID_WIDTH)]
@@ -528,16 +535,16 @@ class Tetris(object):
 
         self.player = player
 
-        self.reset()
+        self.reset(seed)
 
-    def reset(self):
+    def reset(self, seed=None):
         self.grid = deepcopy(self.o_grid)
 
         self.oldko = 0 # these two used to keep track of ko's
 
         self._n_used_block = 1
 
-        self.buffer = Buffer()
+        self.buffer = Buffer(seed)
         # list of the held piece
         self.held = None
         self.block = self.buffer.new_block()
@@ -619,7 +626,7 @@ class Tetris(object):
         return self._attacked
     
     def get_grid(self):
-        excess = len(self.grid[0]) - GRID_DEPTH
+        excess = min(len(self.grid[0]) - GRID_DEPTH, GRID_DEPTH)
         return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
         
         block, px, py = self.block, self.px, self.py
@@ -671,7 +678,7 @@ class Tetris(object):
         #return np.transpose(informations, (1, 0))
 
     def get_board(self):
-        excess = len(self.grid[0]) - GRID_DEPTH
+        excess = min(len(self.grid[0]) - GRID_DEPTH, GRID_DEPTH)
         return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
         
         # block, px, py = self.block, self.px, self.py
@@ -903,7 +910,10 @@ class Tetris(object):
         self.cleared = cleared
         self.sent += scores
 
-        real_attacked = max(0, self._attacked - scores)
+        real_attacked = max(0, self._attacked - self.cleared)
+        scores -= real_attacked
+        if scores < 0:
+            scores = 0
 
         self.build_garbage(self.grid, real_attacked)
 
@@ -975,8 +985,8 @@ class Tetris(object):
         """
         def clear_full_lines(grid):
             """Clear full lines from the grid and shift remaining rows down."""
-            width = len(grid)
-            height = len(grid[0])
+            width = GRID_WIDTH
+            height = GRID_DEPTH
 
             # Identify rows that are not full
             new_grid = []
@@ -1021,14 +1031,6 @@ class Tetris(object):
                 for y in range(len(simulated_grid[0])):
                     if simulated_grid[x][y] >= 1:
                         simulated_grid[x][y] = 1
-            
-            excess = len(simulated_grid[0]) - GRID_DEPTH
-
-            # build garbage lines for 2 player
-            if excess > 0:
-                garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
-                garbage_rows = np.tile(garbage_row, excess)
-                simulated_grid = np.concatenate((simulated_grid, garbage_rows), axis=1)
 
             return simulated_grid, cleared_lines
         
@@ -1143,8 +1145,8 @@ class Tetris(object):
             else:
                 ko_penalty = 0
 
-            return 4.0*scores + additional_penalty
-            #return scores 
+            return 4.0*scores + additional_penalty  # for dense reward
+            #return scores # for sparse reward
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""
@@ -1171,6 +1173,7 @@ class Tetris(object):
         grid = deepcopy(self.grid)
         block = deepcopy(self.block)
         px, py = 4, -2 + len(self.grid[0]) - GRID_DEPTH
+        excess = min(len(grid[0]) - GRID_DEPTH, GRID_DEPTH)
 
         # Generate all possible moves for the current piece
         moves = generate_moves(grid, block, px, py)
@@ -1201,8 +1204,20 @@ class Tetris(object):
             height_sum, diff_sum, max_height, holes = get_infos(final_grid)
             reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
 
+            # for two players add garbage lines
+            return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
+            
+            for i in range(len(final_grid)):
+                return_grids[i] = np.array(final_grid[i][excess:GRID_DEPTH], dtype=np.float32)
+            return_grids[return_grids > 0] = 1
+            # add garbage lines
+            if excess > 0:
+                garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
+                garbage_rows = np.tile(garbage_row, excess)
+                return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
+
             # Rotate the grid to 10x20
-            rotated_grid = np.transpose(final_grid)
+            rotated_grid = np.transpose(return_grids)
 
             # Map actions to integers
             action_sequence = map_actions_to_integers(actions)
@@ -1250,12 +1265,24 @@ class Tetris(object):
                 height_sum, diff_sum, max_height, holes = get_infos(final_grid)
                 reward = compute_reward(final_grid, cleared_lines, self.combo, height_sum, diff_sum, holes)
 
+                # for two players add garbage lines
+                return_grids = np.zeros(shape=(GRID_WIDTH, GRID_DEPTH-excess), dtype=np.float32)
+                
+                for i in range(len(final_grid)):
+                    return_grids[i] = np.array(final_grid[i][excess:GRID_DEPTH], dtype=np.float32)
+                return_grids[return_grids > 0] = 1
+                # add garbage lines
+                if excess > 0:
+                    garbage_row = 1.0*np.ones(shape=(GRID_WIDTH, 1))
+                    garbage_rows = np.tile(garbage_row, excess)
+                    return_grids = np.concatenate((return_grids, garbage_rows), axis=1)
+
                 # Map actions to integers
                 action_sequence = map_actions_to_integers(actions)
                 action_sequence.insert(0, 0)
 
                 # Rotate the grid to 10x20
-                rotated_grid = np.transpose(final_grid)
+                rotated_grid = np.transpose(return_grids)
 
                 # Record the final state and actions
                 final_states.append(rotated_grid)
