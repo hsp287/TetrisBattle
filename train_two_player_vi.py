@@ -186,13 +186,12 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             last_state, attacked, last_reward, last_future_state = episode_data2[-1]
             updated_reward = last_reward - 100
             episode_data2[-1] = (last_state, attacked, updated_reward, last_future_state)
-            ep_return1 += -100
+            ep_return2 += -100
         else:
             last_state, attacked, last_reward, last_future_state = episode_data1[-1]
             updated_reward = last_reward - 100
-            last_state, attacked, last_reward, last_future_state = episode_data2[-1]
             episode_data1[-1] = (last_state, attacked, updated_reward, last_future_state)
-            ep_return2 += -100
+            ep_return1 += -100
 
         # update the value networks
         if info['winner'] == 0:  # Agent 1 wins
@@ -220,7 +219,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
                 optimizer2.step()
 
             # Perform a soft update to blend Agent 2's network with Agent 1's network
-            tau = 0.1  # Blending factor
+            tau = 0.2  # Blending factor
             for target_param, param in zip(value_net2.parameters(), value_net1.parameters()):
                 target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
@@ -265,7 +264,7 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
                 optimizer1.step()
 
             # Perform a soft update to blend Agent 1's network with Agent 2's network
-            tau = 0.1  # Blending factor
+            tau = 0.2  # Blending factor
             for target_param, param in zip(value_net1.parameters(), value_net2.parameters()):
                 target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
@@ -293,17 +292,17 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
         # Print the total reward and total lines sent
         print(f"Episode {episode + 1}: Total Lines Sent1 = {total_sent1}, Total Lines Sent2 = {total_sent2}, Winner = {info['winner']}")
 
-        if total_sent1 >= best_lines_sent1 and ep_return1 > best_1:
+        if total_sent1 > best_lines_sent1:
             best_lines_sent1 = total_sent1
             best_1 = ep_return1
             torch.save(value_net1.state_dict(), best_model_path1)
-            print(f"New best model for Agent 1 saved with reward = {best_1}")
+            print(f"New best model for Agent 1 saved with reward = {best_1/count1}")
 
-        if total_sent2 >= best_lines_sent2 and ep_return2 > best_2:
+        if total_sent2 > best_lines_sent2:
             best_lines_sent2 = total_sent2
             best_2 = ep_return2
             torch.save(value_net2.state_dict(), best_model_path2)
-            print(f"New best model for Agent 2 saved with reward = {best_2}")
+            print(f"New best model for Agent 2 saved with reward = {best_2/count2}")
 
         # Stop recording and save the video
         if (episode + 1) % record_interval == 0:
