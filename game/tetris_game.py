@@ -8,6 +8,11 @@ from TetrisBattle.renderer import Renderer
 from TetrisBattle.utils.features import *
 import random
 
+import torch
+from torch import nn
+from copy import deepcopy
+
+from TetrisBattle.envs.tetris_interface import ComEvent
 from TetrisBattle.tetris import Tetris, Player, Judge, collideDown, collide, collideLeft, collideRight, \
     hardDrop, freeze, get_infos
 
@@ -45,6 +50,173 @@ POS_LIST = [
         'you_lose': (515, 230),
     }
 ]
+
+
+def load_agent(agent_type, model_path):
+    if agent_type == "multiagent":
+        model = MultiAgent()
+    elif agent_type == "valuenetwork":
+        model = ValueNetwork()
+    elif agent_type == "valuenetworkaug":
+        model = ValueNetworkAug()
+    else:
+        raise ValueError("Invalid agent type")
+    
+    # Load the model weights
+    model.load_state_dict(torch.load(model_path))
+    model.eval()  # Set the model to evaluation mode
+    return model
+
+
+def agent_agent_action(tetris, value_net, agent_type):
+    # Get all possible states
+    final_states, action_sequences, was_held, rewards = tetris.get_all_possible_states()
+
+    # Compute r(s'|s) + V(s') for each possible state
+    future_values = []
+    if agent_type == "multiagent":
+        for grid, reward in zip(final_states, rewards):
+            grid_tensor = torch.tensor(grid, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            # For future states, set attacked to 0
+            attacked = 0
+            info_vector = torch.tensor([attacked], dtype=torch.float32).unsqueeze(0)
+            value = value_net(grid_tensor, info_vector).item()
+            future_values.append(reward + value)
+    elif agent_type == "valuenetwork":
+        for grid, reward in zip(final_states, rewards):
+            grid_tensor = torch.tensor(grid, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            value = value_net(grid_tensor).item()
+            future_values.append(reward + value) 
+
+    # Select the best future state
+    best_index = future_values.index(max(future_values))
+    best_action_sequence = action_sequences[best_index]
+    
+    return best_action_sequence
+
+class MultiAgent(nn.Module):
+    def __init__(self):
+        super(MultiAgent, self).__init__()
+        # Convolutional layers for the grid input
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        
+        # Fully connected layers for the grid input
+        self.fc1_grid = nn.Linear(64 * 10 * 20, 128)
+        
+        # Fully connected layers for the info vector
+        self.fc1_vector = nn.Linear(1, 16)
+        
+        # Final layers combining both inputs
+        self.fc2 = nn.Linear(128 + 16, 128)
+        self.fc3 = nn.Linear(128, 1)
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def forward(self, grid, vector):
+        # Process the grid input
+        x_grid = torch.relu(self.conv1(grid))
+        x_grid = torch.relu(self.conv2(x_grid))
+        x_grid = x_grid.view(x_grid.size(0), -1) 
+        x_grid = torch.relu(self.fc1_grid(x_grid))
+        
+        # Process the vector input
+        x_vector = torch.relu(self.fc1_vector(vector))
+        
+        # Combine both inputs
+        x = torch.cat((x_grid, x_vector), dim=1)
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+
+class ValueNetwork(nn.Module):
+    def __init__(self):
+        super(ValueNetwork, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(64 * 10 * 20, 128)
+        self.fc2 = nn.Linear(128, 1)
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def forward(self, x):
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = x.view(x.size(0), -1)  # Flatten
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+
+class ValueNetworkAug(nn.Module):
+    def __init__(self):
+        super(ValueNetworkAug, self).__init__()
+        # Convolutional layers for the grid input
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        
+        # Fully connected layers for the grid input
+        self.fc1_grid = nn.Linear(64 * 10 * 20, 128)
+        
+        # Fully connected layers for the info vector
+        self.fc1_vector = nn.Linear(7 * 4 + 2, 64)
+        
+        # Final layers combining both inputs
+        self.fc2 = nn.Linear(128 + 64, 128)
+        self.fc3 = nn.Linear(128, 1)
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def forward(self, grid, vector):
+        # Process the grid input
+        x_grid = torch.relu(self.conv1(grid))
+        x_grid = torch.relu(self.conv2(x_grid))
+        x_grid = x_grid.view(x_grid.size(0), -1) 
+        x_grid = torch.relu(self.fc1_grid(x_grid))
+        
+        # Process the vector input
+        x_vector = torch.relu(self.fc1_vector(vector))
+        
+        # Combine both inputs
+        x = torch.cat((x_grid, x_vector), dim=1)
+        x = torch.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
 
 class TetrisGame:
     #first function
@@ -301,19 +473,43 @@ class TetrisGameDouble(TetrisGame):
             "down": pygame.K_j
             }
         ]
+        action_meaning = {
+            0: "NOOP",
+            1: "hold",
+            2: "drop",
+            3: "rotate_right",
+            4: "rotate_left",
+            5: "right",
+            6: "left",
+            7: "down" 
+        }
+        info_dict = {"id": 1}
+        # adding the action information
+        for k, v in action_meaning.items():
+            info_dict[v] = k
 
         tetris_list = []
 
-        for i in range(self.num_players):
-            tetris_list.append({
-                'info_dict': info_dict_list[i],
-                'tetris': Tetris(Player(info_dict_list[i]), gridchoice, seed=shared_seed),
-                'pos': POS_LIST[i]
-            })
+        tetris_list.append({
+            'info_dict': info_dict_list[0],
+            'tetris': Tetris(Player(info_dict_list[0]), gridchoice, seed=shared_seed),
+            'pos': POS_LIST[0]
+        })
+        tetris_list.append({
+            'info_dict': info_dict,
+            'tetris': Tetris(Player(info_dict), gridchoice, seed=shared_seed),
+            'pos': POS_LIST[1],
+            'com_event': ComEvent(),
+        })
 
         winner = 0
         force_quit = 0
         #main loop
+        # Initialize variables for the agent's action sequence
+        agent_action_sequence = []
+        agent_action_index = 0
+        agent = load_agent("multiagent", "/home/meriit/TetrisBattle/value_iteration_results/multi/best_model_agent2.pth")
+
         while running:
             # battlemusic.play()#plays music
 
@@ -325,11 +521,33 @@ class TetrisGameDouble(TetrisGame):
                     running = False
                     force_quit = 1
 
-                for tetris_dict in tetris_list:
-                    tetris_dict["tetris"].trigger(evt)
+                tetris_list[0]["tetris"].trigger(evt)  # Player 1 actions
+                tetris_list[0]["tetris"].move()
 
-            for tetris_dict in tetris_list:
-                tetris_dict["tetris"].move()
+            # Agent logic for the second player
+            second_player_tetris = tetris_list[1]["tetris"]
+
+            if agent_action_index >= len(agent_action_sequence):
+                agent_action_sequence = agent_agent_action(second_player_tetris, agent, agent_type="multiagent")
+                agent_action_index = 0
+                print(agent_action_sequence)
+
+            # Apply the next action in the sequence
+            if agent_action_index < len(agent_action_sequence):
+                action_agent = agent_action_sequence[agent_action_index]
+                if action_agent == 5 or action_agent == 6:
+                    if second_player_tetris.LAST_MOVE_SHIFT_TIME > MOVE_SHIFT_FREQ:
+                        agent_action_index += 1
+                elif action_agent == 3 or action_agent == 4:
+                    if second_player_tetris.LAST_ROTATE_TIME >= ROTATE_FREQ:
+                        agent_action_index += 1
+                else:
+                    agent_action_index += 1
+                com_event = tetris_list[1]["com_event"]
+                com_event.set([action_agent])
+                for evt in com_event.get():
+                    second_player_tetris.trigger(evt)
+                    tetris_list[1]["tetris"].move()
 
             for i, tetris_dict in enumerate(tetris_list):
                 opponent = tetris_list[self.num_players - 1 - i]
