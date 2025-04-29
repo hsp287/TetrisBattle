@@ -141,6 +141,8 @@ def load_agent(agent_type, model_path):
         model = ValueNetwork()
     elif agent_type == "valuenetworkaug":
         model = ValueNetworkAug()
+    elif agent_type == "baseline":
+        model = ValueNetwork()
     else:
         raise ValueError("Invalid agent type")
     
@@ -197,6 +199,8 @@ def agent_agent_action(env, value_net, agent_type, state, player):
             info_tensor = torch.cat([piece_vec, board_vec], dim=1)
             value = value_net(grid_tensor, info_tensor).item()
             future_values.append(reward + value) 
+    else:
+        future_values = rewards
 
     # Select the best future state
     best_index = future_values.index(max(future_values))
@@ -216,7 +220,7 @@ def agent_versus_agent(agent_type1=None, agent_type2=None, model_path1=None, mod
     n_ep = 100
 
     # Initialize CSV file
-    csv_file = "multi_vs_dense.csv"
+    csv_file = "multi_vs_base.csv"
     with open(csv_file, mode="w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["Episode", "Total Lines sent1", "Total Lines sent2", "Winner"]) 
@@ -289,4 +293,4 @@ def agent_versus_agent(agent_type1=None, agent_type2=None, model_path1=None, mod
     recorder.stop_and_save("two_agent_episode")
 
 if __name__ == "__main__":
-    agent_versus_agent(agent_type1="multiagent", agent_type2="valuenetwork", model_path1="value_iteration_results/multi/best_model_agent1.pth", model_path2="value_iteration_results/denser/best_model.pth")
+    agent_versus_agent(agent_type1="multiagent", agent_type2="valuenetwork", model_path1="value_iteration_results/multi/best_model_agent1.pth", model_path2="value_iteration_results/sparse/best_model.pth")

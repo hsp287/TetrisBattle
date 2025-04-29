@@ -89,7 +89,6 @@ def train_agent(num_episodes=100, gamma=0.99, learning_rate=1e-3, record_interva
             best_index = random.randint(0, len(final_states) - 1)
         else:  # Exploitation
             best_index = future_values.index(max(future_values))
-        best_index = future_values.index(max(future_values))
         best_action_sequence = action_sequences[best_index]
         best_future_state = final_states[best_index]
         best_reward = rewards[best_index]
