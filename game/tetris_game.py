@@ -7,6 +7,8 @@ import time as t
 from TetrisBattle.renderer import Renderer
 from TetrisBattle.utils.features import *
 import random
+from video_recorder import VideoRecorder
+import numpy as np
 
 import torch
 from torch import nn
@@ -60,7 +62,7 @@ def load_agent(agent_type, model_path):
     elif agent_type == "valuenetworkaug":
         model = ValueNetworkAug()
     else:
-        raise ValueError("Invalid agent type")
+        model = ValueNetwork()
     
     # Load the model weights
     model.load_state_dict(torch.load(model_path))
@@ -87,6 +89,8 @@ def agent_agent_action(tetris, value_net, agent_type):
             grid_tensor = torch.tensor(grid, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
             value = value_net(grid_tensor).item()
             future_values.append(reward + value) 
+    else:
+        future_values = rewards 
 
     # Select the best future state
     best_index = future_values.index(max(future_values))
@@ -510,8 +514,13 @@ class TetrisGameDouble(TetrisGame):
         agent_action_index = 0
         agent = load_agent("multiagent", "/home/meriit/TetrisBattle/value_iteration_results/multi/best_model_agent2.pth")
 
+        recorder = VideoRecorder(save_dir="training")
+        recorder.start_recording()  # Start recording
+
         while running:
             # battlemusic.play()#plays music
+
+            recorder.capture_frame(self.screen) 
 
             for tetris_dict in tetris_list:
                 tetris_dict["tetris"].natural_down()
@@ -528,9 +537,10 @@ class TetrisGameDouble(TetrisGame):
             second_player_tetris = tetris_list[1]["tetris"]
 
             if agent_action_index >= len(agent_action_sequence):
+                print(np.transpose(second_player_tetris.grid))
                 agent_action_sequence = agent_agent_action(second_player_tetris, agent, agent_type="multiagent")
                 agent_action_index = 0
-                print(agent_action_sequence)
+                #print(agent_action_sequence)
 
             # Apply the next action in the sequence
             if agent_action_index < len(agent_action_sequence):
@@ -547,7 +557,7 @@ class TetrisGameDouble(TetrisGame):
                 com_event.set([action_agent])
                 for evt in com_event.get():
                     second_player_tetris.trigger(evt)
-                    tetris_list[1]["tetris"].move()
+                tetris_list[1]["tetris"].move()
 
             for i, tetris_dict in enumerate(tetris_list):
                 opponent = tetris_list[self.num_players - 1 - i]
@@ -578,7 +588,11 @@ class TetrisGameDouble(TetrisGame):
 
                         # screen.blit(kos[tetris_2.get_KO() - 1], (426, 235))
                         pygame.display.flip()
+                        agent_action_index -= 1
                         freeze(0.5)
+                        if i == 1:
+                            agent_action_sequence = [0] * int(FPS)
+                            agent_action_index = 0
                         # scores -= 1
 
                         # end = 1
@@ -641,6 +655,7 @@ class TetrisGameDouble(TetrisGame):
 
                 if not running:
                     winner = Judge.who_win(tetris, opponent["tetris"])
+                    recorder.stop_and_save("player_vs_agent")
 
             self.renderer.drawTime2p(time)
 

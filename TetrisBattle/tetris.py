@@ -933,6 +933,9 @@ class Tetris(object):
                 is_ko = True
                 break
 
+        if is_ko:
+            self.clear_garbage()
+
         return is_ko
         
     def clear_garbage(self):
@@ -944,6 +947,13 @@ class Tetris(object):
                     garbage += 1
                     self.grid[x].pop(y)
                     self.grid[x] = [0] + self.grid[x]
+        # Ensure the grid is exactly 10x20
+        while len(self.grid[0]) > GRID_DEPTH:
+            for x in range(GRID_WIDTH):
+                self.grid[x].pop(0)  # Remove excess rows from the top
+        while len(self.grid[0]) < GRID_DEPTH:
+            for x in range(GRID_WIDTH):
+                self.grid[x].insert(0, 0)  # Add missing rows at the top
 
     def build_garbage(self, grid, attacked):
         garbage_size = min(attacked, GRID_DEPTH)
@@ -951,7 +961,6 @@ class Tetris(object):
             for i in range(GRID_WIDTH):
                 # del player.grid[i][y] # deletes top of grid
                 grid[i] = grid[i] + [8] # adds garbage lines at the bottom
-
         # return grid
 
     def check_combo(self):
@@ -1147,6 +1156,7 @@ class Tetris(object):
 
             return 4.0*scores + additional_penalty  # for dense reward
             #return scores # for sparse reward
+            #return 2.0*scores - 0.3*holes
         
         def map_actions_to_integers(actions):
             """Action mapping based on tetris interface"""
