@@ -911,7 +911,7 @@ class Tetris(object):
         self.sent += scores
 
         real_attacked = max(0, self._attacked - self.cleared)
-        scores -= real_attacked
+        scores -= self._attacked
         if scores < 0:
             scores = 0
 

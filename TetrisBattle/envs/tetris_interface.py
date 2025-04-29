@@ -644,14 +644,6 @@ class TetrisDoubleInterface(TetrisInterface):
 
             infos = {'now_player': self.now_player}
 
-            if end:
-                # freeze(0.5)
-                #print(winner)
-
-                infos['winner'] = winner
-
-                # self.reset()
-
             reward = self.reward_func(infos)
             self.take_turns()
 
@@ -660,5 +652,13 @@ class TetrisDoubleInterface(TetrisInterface):
         if self.time == 0:
             winner = Judge.who_win(tetris, opponent["tetris"])
             end = 1
+        
+        if end:
+                # freeze(0.5)
+                #print(winner)
+
+                infos['winner'] = winner
+
+                # self.reset()
 
         return ob, reward, end, infos
