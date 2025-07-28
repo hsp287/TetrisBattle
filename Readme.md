@@ -1,3 +1,7 @@
+# **DDRL Project**
+
+Project Report: https://tetris-battle-rl-report-nyu-ddrl.gitbook.io/tetris-battle-rl-report-nyu
+
 # **TetrisBattle**
 
 This project is to reproduce the popular Facebook game -- Tetris Battle (Not available playing online now). I also offer the environment of the game for training AI agent.

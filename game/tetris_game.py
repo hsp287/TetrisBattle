@@ -591,7 +591,7 @@ class TetrisGameDouble(TetrisGame):
                         agent_action_index -= 1
                         freeze(0.5)
                         if i == 1:
-                            agent_action_sequence = [0] * int(FPS)
+                            agent_action_sequence = [0] * int(FPS*0.5)
                             agent_action_index = 0
                         # scores -= 1
 
